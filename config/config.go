@@ -1,13 +1,13 @@
 package config
 
-type Configs struct {
+type Config struct {
 	DBDriverName     string
 	DBDataSourceName string
 }
 
-func NewConfigs() *Configs {
-	return &Configs{
-        DBDriverName: "sqlite",
-        DBDataSourceName: "scripts/simplify",
-    }
+func New() *Config {
+	return &Config{
+		DBDriverName:     "sqlite",
+		DBDataSourceName: "scripts/simplify.sqlite",
+	}
 }

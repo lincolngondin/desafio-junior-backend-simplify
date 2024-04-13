@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 
     _ "modernc.org/sqlite"
@@ -12,17 +11,16 @@ import (
 )
 
 func main() {
-	config := config.NewConfigs()
+	config := config.New()
 	db, err := sql.Open(config.DBDriverName, config.DBDataSourceName)
 	if err != nil {
 		log.Fatal(err)
 	}
+    defer db.Close()
     
     taskRepo := task.NewReposity(db)
     task := task.NewTask("Teste", "", task.TASK_PRIORITY_LOW)
     taskRepo.CreateTask(task)
 
-	fmt.Println("Hello world")
 
-    db.Close()
 }

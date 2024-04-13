@@ -24,3 +24,11 @@ func NewTask(name string, description string, priority Priority) *Task {
 		Priority:    priority,
 	}
 }
+
+func NewDefaultTask() *Task {
+    return &Task{}
+}
+
+func (task *Task) ChangeCompleted() {
+    task.Completed = !task.Completed
+}
