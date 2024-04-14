@@ -34,11 +34,9 @@ func (repo *repository) DeleteTask(id int64) error {
     taskExample := NewDefaultTask()
     noRows := row.Scan(&taskExample.Id, &taskExample.Name, &taskExample.Description, &taskExample.Completed, &taskExample.Priority)
     if noRows == sql.ErrNoRows {
-        tx.Rollback()
         return ErrorTaskNotFound
     }
     if noRows != nil {
-        tx.Rollback()
         return noRows
     }
 	_, err := tx.Exec("DELETE FROM tasks WHERE id = $1;", id)
@@ -80,13 +78,40 @@ func (repo *repository) GetTasks() ([]Task, error) {
 	return tasks, nil
 }
 
-func (repo *repository) UpdateTask(id int64, name string, description string, priority Priority, completed bool) error {
-    _, err := repo.db.Exec("UPDATE tasks SET nome = $1, descricao = $2, completado = $3, prioridade = $4 WHERE id = $5;",
+func (repo *repository) UpdateTask(id int64, name string, description string, priority Priority, completed bool) (*Task, error) {
+    tx, errTx := repo.db.Begin()
+    if errTx != nil {
+        return nil, errTx
+    }
+
+    row := tx.QueryRow("SELECT * FROM tasks WHERE id = $1;", id)
+    task := NewDefaultTask()
+    scanErr := row.Scan(&task.Id, &task.Name, &task.Description, &task.Completed, &task.Priority)
+    if scanErr == sql.ErrNoRows {
+        return nil, ErrorTaskNotFound
+    }
+    if scanErr != nil {
+        return nil, scanErr
+    }
+    task.Name = name
+    task.Description = description
+    task.Priority = priority
+    task.Completed = completed
+
+    _, err := tx.Exec("UPDATE tasks SET nome = $1, descricao = $2, completado = $3, prioridade = $4 WHERE id = $5;",
 		name,
 		description,
-		priority,
 		completed,
+		priority,
 		id,
 	)
-	return err
+    if err != nil {
+        tx.Rollback()
+        return nil, err
+    }
+    commitErr := tx.Commit()
+    if commitErr != nil {
+        return nil, commitErr
+    }
+	return task, nil
 }

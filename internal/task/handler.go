@@ -2,8 +2,6 @@ package task
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -12,7 +10,7 @@ type serv interface {
 	GetTasks(id int64, byID bool) ([]Task, error)
 	CreateTask(name string, description string, priority Priority) error
 	DeleteTask(id int64) error
-	UpdateTask(id int64, name, description string, priority Priority) error
+	UpdateTask(id int64, name, description string, priority Priority, completed bool) (*Task, error)
 }
 
 type handler struct {
@@ -78,16 +76,17 @@ type TaskResponse struct {
 
 func (hnd *handler) CreateTaskHandler(response http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
+    encoder := json.NewEncoder(response)
 	task := NewDefaultTask()
 	decodeErr := decoder.Decode(&task)
-	fmt.Println(task)
 	if decodeErr != nil {
-		fmt.Println(decodeErr)
-		response.Write([]byte("Invalid request!"))
+		response.WriteHeader(http.StatusBadRequest)
+        encoder.Encode(ResponseErrors{"Invalid request!"})
+        return
 	}
 	if !task.IsValid() {
 		response.WriteHeader(http.StatusBadRequest)
-		response.Write([]byte("Invalid request: nome, descricao e prioridade não podem estar vazios!"))
+        encoder.Encode(ResponseErrors{"Invalid request: nome, descricao e prioridade não podem estar vazios!"})
 		return
 	}
 
@@ -103,28 +102,52 @@ func (hnd *handler) CreateTaskHandler(response http.ResponseWriter, request *htt
 }
 
 func (hnd *handler) UpdateTaskHandler(response http.ResponseWriter, request *http.Request) {
+	encoder := json.NewEncoder(response)
+
+    idStr := request.PathValue("task_id")
+	id, errConv := strconv.ParseInt(idStr, 10, 64)
+	if errConv != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(ErrInvalidID)
+		return
+	}
+	task := NewDefaultTask()
+	decoder := json.NewDecoder(request.Body)
+	decodeJSONErr := decoder.Decode(&task)
+	if decodeJSONErr != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(ResponseErrors{decodeJSONErr.Error()})
+        return
+	}
+    newTask, updateErr := hnd.service.UpdateTask(id, task.Name, task.Description, task.Priority, task.Completed)
+    if updateErr == ErrorTaskNotFound {
+		response.WriteHeader(http.StatusNotFound)
+		encoder.Encode(ErrIDNotFound)
+        return
+    }
+    response.WriteHeader(http.StatusOK)
+    encoder.Encode(newTask)
 }
 
 func (hnd *handler) DeleteTaskHandler(response http.ResponseWriter, request *http.Request) {
-    encoder := json.NewEncoder(response)
-    idStr := request.PathValue("task_id")
-    id, errConv := strconv.ParseInt(idStr, 10, 64)
-    if errConv != nil {
-        response.WriteHeader(http.StatusBadRequest)
-        encoder.Encode(ErrInvalidID)
-        return
-    }
-    err := hnd.service.DeleteTask(id)
-    if err == ErrorTaskNotFound {
-        response.WriteHeader(http.StatusNotFound)
-        encoder.Encode(ErrIDNotFound)
-        return
-    }
-    if err != nil {
-        log.Println(err)
-        response.WriteHeader(http.StatusInternalServerError)
-        encoder.Encode(ErrFetchingData)
-        return
-    }
-    response.WriteHeader(http.StatusNoContent)
+	encoder := json.NewEncoder(response)
+	idStr := request.PathValue("task_id")
+	id, errConv := strconv.ParseInt(idStr, 10, 64)
+	if errConv != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		encoder.Encode(ErrInvalidID)
+		return
+	}
+	err := hnd.service.DeleteTask(id)
+	if err == ErrorTaskNotFound {
+		response.WriteHeader(http.StatusNotFound)
+		encoder.Encode(ErrIDNotFound)
+		return
+	}
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		encoder.Encode(ErrFetchingData)
+		return
+	}
+	response.WriteHeader(http.StatusNoContent)
 }

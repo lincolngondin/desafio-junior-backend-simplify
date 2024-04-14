@@ -5,7 +5,7 @@ type repo interface {
 	DeleteTask(id int64) error
     GetTaskById(id int64) (*Task, error)
 	GetTasks() ([]Task, error)
-	UpdateTask(id int64, name string, description string, priority Priority, completed bool) error
+	UpdateTask(id int64, name string, description string, priority Priority, completed bool) (*Task, error)
 }
 
 type service struct {
@@ -39,6 +39,6 @@ func (svc *service) DeleteTask(id int64) error {
     return svc.repository.DeleteTask(id)
 }
 
-func (svc *service) UpdateTask(id int64, name, description string, priority Priority) error {
-    return svc.UpdateTask(id, name, description, priority)
+func (svc *service) UpdateTask(id int64, name, description string, priority Priority, completed bool) (*Task, error) {
+    return svc.repository.UpdateTask(id, name, description, priority, completed)
 }

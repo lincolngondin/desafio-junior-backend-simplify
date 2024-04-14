@@ -35,7 +35,7 @@ func main() {
 	mux.HandleFunc("GET /task", taskHandler.GetTasksHandler)
 	mux.HandleFunc("GET /task/{task_id}", taskHandler.GetTasksHandler)
 	mux.HandleFunc("POST /task", taskHandler.CreateTaskHandler)
-	mux.HandleFunc("POST /task/{task_id}", taskHandler.UpdateTaskHandler)
+	mux.HandleFunc("PUT /task/{task_id}", taskHandler.UpdateTaskHandler)
 	mux.HandleFunc("DELETE /task/{task_id}", taskHandler.DeleteTaskHandler)
 
 	server := http.Server{
