@@ -2,7 +2,10 @@ package task
 
 import (
 	"database/sql"
+	"errors"
 )
+
+var ErrorTaskNotFound = errors.New("Task Not Found")
 
 type repository struct {
 	db *sql.DB
@@ -23,8 +26,41 @@ func (repo *repository) CreateTask(task *Task) error {
 }
 
 func (repo *repository) DeleteTask(id int64) error {
-	_, err := repo.db.Exec("DELETE FROM tasks WHERE id = $1;", id)
-	return err
+    tx, txErr := repo.db.Begin()
+    if txErr != nil {
+        return txErr
+    }
+    row := tx.QueryRow("SELECT * FROM tasks WHERE id = $1;", id)
+    taskExample := NewDefaultTask()
+    noRows := row.Scan(&taskExample.Id, &taskExample.Name, &taskExample.Description, &taskExample.Completed, &taskExample.Priority)
+    if noRows == sql.ErrNoRows {
+        tx.Rollback()
+        return ErrorTaskNotFound
+    }
+    if noRows != nil {
+        tx.Rollback()
+        return noRows
+    }
+	_, err := tx.Exec("DELETE FROM tasks WHERE id = $1;", id)
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+    commitErr := tx.Commit()
+	return commitErr
+}
+
+func (repo *repository) GetTaskById(id int64) (*Task, error) {
+    task := NewDefaultTask()
+	row := repo.db.QueryRow("SELECT * FROM tasks WHERE id = $1;", id)
+    err := row.Scan(&task.Id, &task.Name, &task.Description, &task.Completed, &task.Priority)
+    if err == sql.ErrNoRows {
+        return nil, ErrorTaskNotFound
+    }
+    if err != nil {
+        return nil, err
+    }
+    return task, nil
 }
 
 func (repo *repository) GetTasks() ([]Task, error) {
